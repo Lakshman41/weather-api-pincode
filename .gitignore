@@ -1,0 +1,56 @@
+# ==================================================
+# .gitignore for the Pincode Weather API project
+# ==================================================
+
+# --- Secrets ---
+# Ignore the environment file containing the database credentials and API key.
+# This is the most important rule for security.
+.env
+
+# --- Build Output & Logs ---
+# Ignore Maven's build output directory.
+/target/
+
+# Ignore log files, pid files, and other runtime artifacts.
+*.log
+*.pid
+*.pid.old
+
+# --- IDE-specific files ---
+
+# Project IDX & VS Code
+# This directory contains user-specific workspace settings.
+/.idx/
+.vscode/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+/out/
+
+# Eclipse / Spring Tool Suite (STS)
+.classpath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+.apt_generated/
+.factorypath
+
+# --- Operating System files ---
+# Ignore OS-generated files that don't belong in a repository.
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Other Build Systems (for completeness) ---
+.gradle
+/build/
+
+# NetBeans project files
+/nbproject/private/
+/nbdist/
+/nbbuild/
+/.nb-gradle/
