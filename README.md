@@ -250,7 +250,6 @@ The `WeatherServiceTest` class provides extensive coverage for the core business
 - **Error and Edge Case Handling:**
   - Asserts that an `InvalidInputException` is thrown for past dates.
   - Asserts that a `ResourceNotFoundException` is thrown when an invalid pincode is provided that cannot be geocoded.
-```
 
 ## 🚀 Deployment
 
