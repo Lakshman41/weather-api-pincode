@@ -2,6 +2,28 @@
 
 A scalable and optimized backend service that provides weather information for Indian pincodes. Built with Java and Spring Boot, this service features intelligent caching to minimize external API calls and reduce latency.
 
+## 🚀 Live Demo & API
+
+This application is live and deployed on Google Cloud Run. You can interact with the API using the public endpoint below.
+
+**Base URL:** `https://pincode-weather-service-70105017329.asia-south2.run.app`
+
+You can test the endpoint using an API client like [Postman](https://www.postman.com/) or with `cURL` commands. For example, to get the weather for a specific pincode and date:
+
+**Example Request (`cURL`):**
+```bash
+# Replace YYYY-MM-DD with the current date to get current weather
+# or a future date (within 5 days) to get a daily forecast.
+
+# Get current weather for Delhi (110001)
+curl "https://pincode-weather-service-70105017329.asia-south2.run.app/api/weather?pincode=110001&date=2025-07-05"
+
+# Get forecast for Pune (411014) for a future date
+curl "https://pincode-weather-service-70105017329.asia-south2.run.app/api/weather?pincode=411014&date=2025-07-06"
+```
+
+Note: The service is running on a free tier, so the first request after a period of inactivity might take a few seconds to respond as the container "wakes up."
+
 ## ✨ Features
 
 - **Single Unified Endpoint**: Get current weather or forecast through one intelligent API

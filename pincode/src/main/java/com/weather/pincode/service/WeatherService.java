@@ -17,6 +17,7 @@ import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -43,6 +44,7 @@ public class WeatherService {
         this.openWeatherClient = openWeatherClient;
     }
 
+    @Transactional
     public String getWeatherForPincode(String pincode, LocalDate date) {
         // Step 1: Validate inputs
         if (!pincode.matches("\\d{6}")) {
@@ -68,15 +70,20 @@ public class WeatherService {
     private String getCurrentWeather(String pincode, LocalDate date) {
         Optional<WeatherCache> cachedWeather = weatherCacheRepository.findByPincodeAndForDate(pincode, date);
         if (cachedWeather.isPresent()) {
+            System.out.println("Cache HIT for weather data: " + pincode + " on " + date);
             return cachedWeather.get().getWeatherData();
         }
+
+        System.out.println("Cache MISS for weather data. Fetching new data.");
         PincodeLocation location = getPincodeLocation(pincode);
         String newWeatherData = openWeatherClient.getWeather(location.getLatitude(), location.getLongitude());
+        
         WeatherCache newCacheEntry = new WeatherCache();
         newCacheEntry.setPincode(pincode);
         newCacheEntry.setForDate(date);
         newCacheEntry.setWeatherData(newWeatherData);
-        weatherCacheRepository.save(newCacheEntry);
+        // We can use saveAndFlush here, it's efficient for new entities.
+        weatherCacheRepository.saveAndFlush(newCacheEntry);
         return newWeatherData;
     }
 
@@ -106,33 +113,48 @@ public class WeatherService {
     }
 
     private String getFullForecast(String pincode) {
-        Optional<ForecastCache> cachedForecast = forecastCacheRepository.findByPincode(pincode);
-        if (cachedForecast.isPresent() && Duration.between(cachedForecast.get().getCachedAt(), Instant.now()).toHours() < 3) {
-            return cachedForecast.get().getForecastData();
+        Optional<ForecastCache> cachedForecastOpt = forecastCacheRepository.findByPincode(pincode);
+        
+        // Check if a fresh cache exists
+        if (cachedForecastOpt.isPresent() && Duration.between(cachedForecastOpt.get().getCachedAt(), Instant.now()).toHours() < 3) {
+            System.out.println("Cache HIT for forecast data: " + pincode);
+            return cachedForecastOpt.get().getForecastData();
         }
+
+        System.out.println("Cache MISS for forecast data. Fetching new forecast.");
         PincodeLocation location = getPincodeLocation(pincode);
         String newForecastData = openWeatherClient.getForecast(location.getLatitude(), location.getLongitude());
-        ForecastCache newCacheEntry = cachedForecast.orElseGet(ForecastCache::new);
-        newCacheEntry.setPincode(pincode);
-        newCacheEntry.setForecastData(newForecastData);
-        newCacheEntry.setCachedAt(Instant.now());
-        forecastCacheRepository.save(newCacheEntry);
+
+        // *** OPTIMIZED LOGIC ***
+        // If a cache entry already exists (but was stale), update it. Otherwise, create a new one.
+        ForecastCache cacheToSave = cachedForecastOpt.orElseGet(ForecastCache::new);
+        if (cacheToSave.getId() == null) { // This is how we know it's a new entity
+            cacheToSave.setPincode(pincode);
+        }
+        cacheToSave.setForecastData(newForecastData);
+        cacheToSave.setCachedAt(Instant.now());
+        forecastCacheRepository.saveAndFlush(cacheToSave); // saveAndFlush on a managed/new entity is efficient
         return newForecastData;
     }
     
     private PincodeLocation getPincodeLocation(String pincode) {
-        return pincodeLocationRepository.findById(pincode)
-                .orElseGet(() -> {
-                    try {
-                        PincodeLocation newLocation = geocodingClient.getCoordinatesForPincode(pincode);
-                        if (newLocation == null || newLocation.getLatitude() == null) {
-                            throw new ResourceNotFoundException("Could not find coordinates for pincode: " + pincode);
-                        }
-                        newLocation.setPincode(pincode);
-                        return pincodeLocationRepository.save(newLocation);
-                    } catch (RestClientException e) {
-                        throw new ResourceNotFoundException("Pincode not found: " + pincode);
-                    }
-                });
+        Optional<PincodeLocation> locationOpt = pincodeLocationRepository.findById(pincode);
+        if (locationOpt.isPresent()) {
+            System.out.println("Cache HIT for pincode coordinates: " + pincode);
+            return locationOpt.get();
+        }
+
+        System.out.println("Cache MISS for pincode coordinates. Fetching from Geocoding API.");
+        try {
+            PincodeLocation newLocation = geocodingClient.getCoordinatesForPincode(pincode);
+            if (newLocation == null || newLocation.getLatitude() == null) {
+                throw new ResourceNotFoundException("Could not find coordinates for pincode: " + pincode);
+            }
+            newLocation.setPincode(pincode);
+            // Because this is a guaranteed new entity, saveAndFlush will perform a direct INSERT.
+            return pincodeLocationRepository.saveAndFlush(newLocation);
+        } catch (RestClientException e) {
+            throw new ResourceNotFoundException("Pincode not found: " + pincode);
+        }
     }
 }
